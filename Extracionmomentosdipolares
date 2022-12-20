@@ -1,0 +1,64 @@
+"""intrucciones de uso: este programa sirve para extraer los momentos dipolares atomicos
+del arhivo .sum pero puede ser adptado para obtener otra informacion de dicho archivo
+siempre que tengas identificado cual es tu linea de inicio donde quieres empezar a extraer la 
+informacion y una linea de paro donde quieres parar de extraer la informacion
+
+Para que funcione tenemos que tener nuestro programa en una carpeta con los tres archivos sum
+(izquierda, derecha y centrada ) o en dado caso si solo quieres extraer los momentos dipolares
+de un archivo desactiva la linea 44 y 45 y en la lista de la linea 48 solo deja la linea izquierda"""
+
+#Definimos una funcion la cual extrae la columna del momento dipolar en el eje x de los archivos sum
+def extraccion_momento_dipolar(ruta):  #el argumento que necesita es la ruta con el nombre del archivo
+    with open(ruta, 'r') as f:   #cargamos el archivo
+        contador=1   #definimos un contador para que valla contando los renglones
+        for linea in f:   #vamos leyendo el archivo
+            if linea=='Atom A     Mu_Intra_X(A)     Mu_Bond_X(A)        Mu_X(A)\n': #especificamos el renglon donde queremos empezar a extraer la informacion (si necesitas extraer otro apartado solo especifica el renglon que necesites)
+                pocicion_inicio=contador  #una ves que leimos el renglon que necesitamos guardamos el renglon donde esta la linea
+            else:  #en dado caso de que no sea el renglon que necesitamos solo le sumamos uno a nuestro contador de renglones y seguimos leyendo
+                contador=contador+1
+            
+    with open(ruta, 'r') as f:   # Una ves que tenemos la pocicion de nuestro renglon de inicio, extraemos la informacion hasta que encuentre un renglon de terminacion
+        lineas = f.readlines()[pocicion_inicio+1:]
+
+    archivo_final=[]  #definimos una lista donde se van a guardar los renglones que vamos extraer 
+    for i in lineas:
+        if i!='-------------------------------------------------------------\n': #este es nuestro renglon de terminacion
+            archivo_final.append(i)  #si es difernete al renglon de terminacion quiere decir que todavia falta asi que agregamos al renglon actual a la informacion que queremos extraer
+        else:
+            break  #si en el renglon en el que vamos leyendo es igual al renglon de terminacion deja de almacenar la informacion y rompe el ciclo for 
+        
+    #De la informacion que extrajimos ahora vamos a fragmentar la cadena en una lista y nos quedamos con el elemnto numero 3 el cual tiene el momento dipolar en el eje x de cada atomo
+    momento_dipolar_x=[]  #el momento dipolar se va ir guardando en esta lista 
+    for i in archivo_final:
+        lista_renglon=i.split()  
+        momento_dipolar_x.append(float(lista_renglon[3])) #como esta en formato cadena primero lo convertimos a float y despues lo agregamos
+        
+    return momento_dipolar_x  #al final me retorna el momento dipolar en el eje x de cada atomo del archivo que le mandamos a un inicio
+
+#importamos las librerias correspondientes
+import os
+import pandas as pd
+
+#renombramos los archivos sum a txt para que puedan ser leeidos por python
+os.rename("izquierda.sum", "izquierda.txt")
+os.rename("derecha.sum", "derecha.txt")
+os.rename("centrada.sum", "centrada.txt")
+
+#hacemos una lista con los nombres (o rutas si no estan en la carperta donde esta el programa) de las funciones de onda en la carpeta
+funciones_de_onda=["izquierda.txt","centrada.txt","derecha.txt"]
+momentos_dipolares=[]  #en esta lista vamos a guardar los momentos dipolares por la derecha, izquierda y centrados
+
+#vamos recorriendo la lista de nombres y la mandamos como argumento a nuestra funcion de extraccion
+for i in funciones_de_onda:
+    moment_dipole=extraccion_momento_dipolar(i)  #al final la funcion nos retorna la lista de los momentos dipolares, dichos momentos los agregamos a la lista de momentos que creamos 
+    momentos_dipolares.append(moment_dipole)   #agregamos la lista de los momentos 
+
+#con esta linea de momentos dipolares la convierto a un dataframe ya que es mas comodo trabajar con el y podemos crear un archivo en excel de manera sencilla 
+df = pd.DataFrame(list(zip(momentos_dipolares[0],momentos_dipolares[1],momentos_dipolares[2])), columns = ['izquierda',"centrada",'derecha'])
+
+hiperpolarizabilidad_xxx= (df["izquierda"]+df["derecha"]-2*df["centrada"])/((0.0025)**2)
+total=sum(hiperpolarizabilidad_xxx)
+porcentaje=(hiperpolarizabilidad_xxx/total)*100
+final=pd.concat([df,porcentaje],axis=1)
+final.columns =["izquierda","centrada","derecha","contribuciones"]
+final.to_excel("contribuciones_compuesto14.xlsx")
